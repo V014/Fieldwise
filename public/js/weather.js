@@ -196,7 +196,9 @@
     const frostExpected = daily.temperature_2m_min.some(function (temperature) { return temperature <= 0; });
     const hotWeather = daily.temperature_2m_max.some(function (temperature) { return temperature >= 35; });
     const heavyRain = daily.precipitation_sum.some(function (rain) { return rain >= 30; });
-    const rainLikely = daily.precipitation_probability_max.filter(function (chance) { return chance >= 50; }).length >= 3;
+    const forecastRain = daily.precipitation_sum.reduce(function (total, amount) { return total + amount; }, 0);
+    const rainLikely = forecastRain >= 20 ||
+      daily.precipitation_probability_max.filter(function (chance) { return chance >= 50; }).length >= 3;
     elements.season.textContent = tropical
       ? "Tropical · " + (rainLikely ? "rain likely this week" : "drier week")
       : season + " · general guidance";
