@@ -164,6 +164,10 @@
       }
     }
 
+    const priority = { warning: 1, danger: 2 };
+    alerts.sort(function (left, right) {
+      return priority[right.level] - priority[left.level];
+    });
     const seen = new Set();
     const uniqueAlerts = alerts.filter(function (alert) {
       if (seen.has(alert.key)) return false;
@@ -227,7 +231,7 @@
     elements.updated.textContent = "Updated " + new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" })
       .format(new Date(current.time));
     elements.symbol.textContent = description[1];
-    elements.temperature.innerHTML = Math.round(current.temperature_2m) + "<span>°</span>";
+    elements.temperature.innerHTML = Math.round(current.temperature_2m) + "<span>°</span>C";
     elements.condition.textContent = description[0];
     elements.feelsLike.textContent = "Feels like " + Math.round(current.apparent_temperature) + "°C";
     elements.humidity.textContent = Math.round(current.relative_humidity_2m) + "%";
@@ -271,6 +275,7 @@
 
   async function searchLocation(query) {
     const currentRequest = ++requestNumber;
+    elements.locate.disabled = false;
     message("Finding " + query + "…", false);
     const params = new URLSearchParams({ name: query, count: "1", language: "en", format: "json" });
     try {
@@ -305,8 +310,8 @@
     elements.locate.disabled = true;
     message("Requesting your location…", false);
     navigator.geolocation.getCurrentPosition(function (position) {
-      if (currentRequest !== requestNumber) return;
       elements.locate.disabled = false;
+      if (currentRequest !== requestNumber) return;
       const location = {
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
@@ -314,8 +319,8 @@
       };
       loadWeather(location, currentRequest);
     }, function (error) {
-      if (currentRequest !== requestNumber) return;
       elements.locate.disabled = false;
+      if (currentRequest !== requestNumber) return;
       const detail = error.code === error.PERMISSION_DENIED
         ? "Location access was declined. Search for a town or city instead."
         : error.code === error.TIMEOUT
@@ -341,6 +346,6 @@
   if (savedLocation && Number.isFinite(savedLocation.latitude) && Number.isFinite(savedLocation.longitude) && savedLocation.name) {
     loadWeather(savedLocation, ++requestNumber);
   } else {
-    locateUser();
+    message("Use your location or search for a place to see local weather.", false);
   }
 }());
