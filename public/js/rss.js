@@ -51,4 +51,6 @@ function renderWarningBar(data) {
 }
 
 // Execute on app load
-updateWeatherAlertBanner();
+$(document).ready(function () {
+	updateWeatherAlertBanner();
+});
