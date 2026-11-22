@@ -184,26 +184,33 @@
     });
   }
 
-  function seasonFor(date, latitude) {
-    const month = date.getMonth();
+  function seasonFor(month, latitude) {
     const northernSeasons = ["Winter", "Winter", "Spring", "Spring", "Spring", "Summer", "Summer", "Summer", "Autumn", "Autumn", "Autumn", "Winter"];
     const southernSeasons = ["Summer", "Summer", "Autumn", "Autumn", "Autumn", "Winter", "Winter", "Winter", "Spring", "Spring", "Spring", "Summer"];
     return (latitude >= 0 ? northernSeasons : southernSeasons)[month];
   }
 
   function renderAdvice(latitude, daily) {
-    const season = seasonFor(new Date(), latitude);
+    const tropical = Math.abs(latitude) < 23.5;
+    const season = seasonFor(new Date(daily.time[0] + "T12:00:00Z").getUTCMonth(), latitude);
     const frostExpected = daily.temperature_2m_min.some(function (temperature) { return temperature <= 0; });
     const hotWeather = daily.temperature_2m_max.some(function (temperature) { return temperature >= 35; });
     const heavyRain = daily.precipitation_sum.some(function (rain) { return rain >= 30; });
-    elements.season.textContent = season + " · general guidance";
+    const rainLikely = daily.precipitation_probability_max.filter(function (chance) { return chance >= 50; }).length >= 3;
+    elements.season.textContent = tropical
+      ? "Tropical · " + (rainLikely ? "rain likely this week" : "drier week")
+      : season + " · general guidance";
 
-    const cropAdvice = {
+    const cropAdvice = tropical
+      ? rainLikely
+        ? ["Prepare for warm-season planting", "Maize, beans, or groundnuts may suit local conditions once dependable seasonal rain has begun and soil moisture is adequate. Check local sowing guidance and maintain drainage."]
+        : ["Conserve moisture before sowing", "Favor locally adapted, heat-tolerant crops and wait for dependable rain or plan irrigation before sowing. Mulch and protect seedlings from hot, dry conditions."]
+      : ({
       Spring: ["Start with cool-season crops", "Peas, leafy greens, and root vegetables can suit spring sowing. Check local soil temperature and frost dates; hold tender crops until frost risk has passed."],
       Summer: ["Choose warm-season crops", "Beans, squash, and maize can suit warm conditions where your soil and water supply support them. Mulch and plan irrigation during dry spells."],
       Autumn: ["Plan cool-season sowing", "Leafy greens, peas, and root vegetables can suit cooler weather. Consider a locally suitable cover crop and allow time for establishment before cold weather."],
       Winter: ["Protect crops and soil", "Use locally adapted protected or overwintering crops where suitable. Avoid sowing tender plants outdoors during cold spells; check seed guidance for your area."]
-    }[season];
+    }[season]);
     elements.cropTitle.textContent = cropAdvice[0];
     elements.cropAdvice.textContent = cropAdvice[1] +
       (frostExpected ? " Frost is in the forecast, so protect seedlings." : "");
@@ -227,9 +234,18 @@
     const current = data.current;
     const today = data.daily;
     const description = weatherFor(current.weather_code);
+    const offsetMinutes = Math.round(data.utc_offset_seconds / 60);
+    const offsetHours = Math.floor(Math.abs(offsetMinutes) / 60);
+    const offsetRemainder = Math.abs(offsetMinutes) % 60;
+    const offset = (offsetMinutes >= 0 ? "+" : "-") +
+      String(offsetHours).padStart(2, "0") + ":" + String(offsetRemainder).padStart(2, "0");
+    const currentDate = new Date(current.time + offset);
     elements.location.textContent = location.name;
-    elements.updated.textContent = "Updated " + new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" })
-      .format(new Date(current.time));
+    elements.updated.textContent = "Updated " + new Intl.DateTimeFormat(undefined, {
+      dateStyle: "medium",
+      timeStyle: "short",
+      timeZone: data.timezone
+    }).format(currentDate);
     elements.symbol.textContent = description[1];
     elements.temperature.innerHTML = Math.round(current.temperature_2m) + "<span>°</span>C";
     elements.condition.textContent = description[0];
@@ -238,7 +254,10 @@
     elements.wind.textContent = Math.round(current.wind_speed_10m) + " km/h " + degreesToCompass(current.wind_direction_10m);
     elements.rain.textContent = (today.precipitation_sum[0] || 0).toFixed(1) + " mm";
     elements.sunrise.textContent = localTime(today.sunrise[0]);
-    elements.today.textContent = new Intl.DateTimeFormat(undefined, { dateStyle: "full" }).format(new Date(current.time));
+    elements.today.textContent = new Intl.DateTimeFormat(undefined, {
+      dateStyle: "full",
+      timeZone: data.timezone
+    }).format(currentDate);
     renderForecast(today);
     renderAlerts(today);
     renderAdvice(location.latitude, today);
